@@ -1,0 +1,34 @@
+- name: Configure webserver with docker registry
+  hosts: docker1
+  sudo: True
+  tasks:
+    - name: Add python-pip package (for ansible)
+      apt: pkg=python-pip state=present
+    - name: Add docker-py python module (for ansible)
+      pip: name=docker-py state=present
+    - name: Add docker apt repository key
+      apt_key: url=https://get.docker.io/gpg state=present
+    - name: Add docker apt repository
+      apt_repository: repo='deb http://get.docker.io/ubuntu docker main' state=present
+    - name: install docker via apt
+      apt: pkg=lxc-docker{{ "-"+docker.version | default("") }} state=present update_cache=yes
+    - name: copy docker-registry config file
+      copy: src=registry/docker-registry.conf dest=
+    - name: install nginx
+      apt: name=nginx update_cache=yes
+    - name: copy nginx config file
+      copy: src=registry/nginx.conf dest=/etc/nginx/sites-available/default
+      notify: restart nginx
+    - name: enable configuration
+      file: >
+        dest=/etc/nginx/sites-enabled/default
+        src=/etc/nginx/sites-available/default
+        state=link
+    - name: copy index.html
+      copy: src=registry/index.html dest=/usr/share/nginx/html/index.html mode=0644
+      notify: restart nginx
+  handlers:
+    - name: restart docker-registry
+      service: name=docker state=restarted
+    - name: restart nginx
+      service: name=nginx state=restarted
